@@ -19,7 +19,7 @@ from axolotl.prompt_tokenizers import (
     AlpacaReflectionPTStrategy,
     ShareGPTPromptTokenizingStrategy,
     JeopardyPromptTokenizingStrategy,
-    CompletionPromptTokenizingStrategy,
+    CompletionPromptTokenizingStrategy, HellaswagPromptTokenizingStrategy,
 )
 from axolotl.prompters import (
     AlpacaPrompter,
@@ -27,7 +27,7 @@ from axolotl.prompters import (
     ReflectAlpacaPrompter,
     ShareGPTPrompter,
     JeopardyPrompter,
-    CompletionPrompter,
+    CompletionPrompter, HellaswagPrompter,
 )
 
 
@@ -133,6 +133,24 @@ def load_tokenized_prepared_datasets(tokenizer, cfg, default_dataset_prepared_pa
                 )
                 ds_wrapper = TokenizedPromptDataset(ds_strategy, ds["train"])
                 datasets.append(ds_wrapper)
+            elif d.type == "hellaswag":
+                ds_strategy = HellaswagPromptTokenizingStrategy(
+                    HellaswagPrompter(),
+                    tokenizer,
+                    cfg.train_on_inputs,
+                    cfg.sequence_len,
+                )
+                ds_wrapper = TokenizedPromptDataset(ds_strategy, ds["train"])
+                datasets.append(ds_wrapper)
+            # elif d.type == "ai2_arc":
+            #     ds_strategy = AI2ArcPromptTokenizingStrategy(
+            #         AI2ArcPrompter(),
+            #         tokenizer,
+            #         cfg.train_on_inputs,
+            #         cfg.sequence_len,
+            #     )
+            #     ds_wrapper = TokenizedPromptDataset(ds_strategy, ds["train"])
+            #     datasets.append(ds_wrapper)
             else:
                 logging.error(f"unhandled prompt tokenization strategy: {d.type}")
         logging.info("tokenizing, merging, and shuffling master dataset")

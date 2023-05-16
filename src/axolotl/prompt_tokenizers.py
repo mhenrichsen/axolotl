@@ -143,6 +143,24 @@ class CompletionPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
         return next(iter(self.prompter.build_prompt(instruction)))
 
 
+class HellaswagPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
+    def parse_instruction_fields(self, prompt) -> (str, str, str):
+        return (
+            prompt["ctx"],
+            "\n".join(f'- "{item}"' for item in prompt["endings"]),
+            prompt["endings"][int(prompt["label"])],
+        )
+
+
+class AI2ArcPromptTokenizingStrategy(InstructionPromptTokenizingStrategy):
+    def parse_instruction_fields(self, prompt) -> (str, str, str):
+        return (
+            prompt["ctx"],
+            "\n".join(f'- "{item}"' for item in prompt['text']),
+            prompt["text"][prompt["label"].index(prompt["answerKey"])],
+        )
+
+
 class ReflectionPromptTokenizingStrategy(PromptTokenizingStrategy):
     def parse_instruction_fields(self, prompt) -> (str, str, str, str, str):
         raise NotImplementedError
