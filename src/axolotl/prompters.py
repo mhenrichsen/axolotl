@@ -22,8 +22,8 @@ class AlpacaPrompter:
     Base class for alpaca prompters
     """
 
-    system_prompt = "Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n"
-    system_no_input_prompt = "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n"
+    system_prompt = "Nedenfor er en instruktion der beskriver en opgave, sammen med et input der giver yderligere kontekst. Skriv et svar der fyldestgørende besvarer instruktionen.\n\n"
+    system_no_input_prompt = "Nedenfor er en instruktion der beskriver en opgave. Skriv et svar der fyldestgørende besvarer instruktionen.\n\n"
     prompt_style: Optional[PromptStyle] = None
 
     def __init__(self, prompt_style=PromptStyle.INSTRUCT.value):
@@ -34,13 +34,13 @@ class AlpacaPrompter:
         if self.prompt_style == PromptStyle.INSTRUCT.value:
             self.prompt_input = (
                 self.system_prompt
-                + "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n"
+                + "### Instruktion:\n{instruction}\n\n### Input:\n{input}\n\n### Svar:\n"
             )
             self.prompt_no_input = (
                 self.system_no_input_prompt
-                + "### Instruction:\n{instruction}\n\n### Response:\n"
+                + "### Instruktion:\n{instruction}\n\n### Svar:\n"
             )
-            self.response_split = "### Response:"
+            self.response_split = "### Svar:"
         if self.prompt_style == PromptStyle.CHAT.value:
             self.prompt_input = (
                 self.system_prompt + "USER: {instruction}\n{input}\nASSISTANT:"
