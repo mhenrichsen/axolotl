@@ -32,7 +32,7 @@ wandb_watch:
 wandb_run_id:
 wandb_log_model:
 output_dir: ./lora-out
-batch_size: 32
+batch_size: 16
 micro_batch_size: 4
 num_epochs: 3
 optimizer: adamw_bnb_8bit
