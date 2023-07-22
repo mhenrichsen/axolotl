@@ -26,7 +26,7 @@ lora_target_modules:
 lora_target_linear: true
 lora_fan_in_fan_out:
 
-wandb_project: llama-2
+wandb_project:
 wandb_watch:
 wandb_run_id:
 wandb_log_model:
