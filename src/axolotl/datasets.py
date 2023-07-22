@@ -1,18 +1,21 @@
 """Module containing Dataset functionality"""
 
 import logging
+import os
 from typing import List
 
 import torch
 from datasets import IterableDataset
 
-from .prompt_tokenizers import InvalidDataException, PromptTokenizingStrategy
+from .prompt_tokenizers import PromptTokenizingStrategy
 
 # We want this to be a wrapper for an existing dataset that we have loaded
 # lets use the concept of middlewares to wrap each dataset, for example
 # ConstantLengthDataset(ShuffledDataset([TokenizedPromptDataset(alpaca_dataset)]))
 # let's check to ensure we don't truncate an item in the middle, we'll use
 # the collators later on to pad the datasets
+
+LOG = logging.getLogger("axolotl")
 
 
 class TokenizedPromptDataset(IterableDataset):
@@ -32,17 +35,15 @@ class TokenizedPromptDataset(IterableDataset):
         self.dataset = dataset
 
     def __iter__(self):
-        iterator = iter(self.dataset)
-        count = 0
-        # Loop through the entire dataset
-        for example in iterator:
-            try:
-                yield self.prompt_tokenizer.tokenize_prompt(example)
-                count += 1
-            except InvalidDataException:
-                pass
-        if count == 0:
-            raise RuntimeError("Expected at least one datapoint in dataset.")
+        features = self.dataset.features.keys()
+        num_proc = os.cpu_count()
+        return iter(
+            self.dataset.map(
+                self.prompt_tokenizer.tokenize_prompt,
+                num_proc=num_proc,
+                remove_columns=features,
+            )
+        )
 
 
 # TODO this isn't the best since it can't interleave datasets
@@ -115,7 +116,7 @@ class ConstantLengthDataset(IterableDataset):
                                 "attention_mask": attention_mask,
                             }
                         else:
-                            logging.warning(
+                            LOG.warning(
                                 f"dropping batch due to tensor size mismatch input_ids: {input_ids.size()}, labels: {labels.size()}, attention_mask: {attention_mask.size()}"
                             )
                     buffer = {
@@ -126,6 +127,7 @@ class ConstantLengthDataset(IterableDataset):
                     buffer_len = 0
 
                 if example:
+                    # FIXME
                     # just going to drop data points that are too long
                     if len(example["input_ids"]) <= self.seq_length:
                         input_ids = example["input_ids"]

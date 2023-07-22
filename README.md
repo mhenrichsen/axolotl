@@ -24,6 +24,7 @@
 | mpt      | ✅         | ❌    | ❓     | ❌    | ❓            | ❌                 | ❌          | ❓             |
 | falcon   | ✅         | ✅    | ✅     | ❌    | ❓            | ❌                 | ❌          | ✅             |
 | gpt-j    | ✅         | ✅    | ✅     | ❌    | ❓            | ❌                 | ❓          | ✅             |
+| XGen     | ✅         | ❓    | ✅     | ❓    | ❓            | ❓                 | ❓          | ✅
 
 
 ## Quickstart ⚡
@@ -35,8 +36,6 @@ git clone https://github.com/OpenAccess-AI-Collective/axolotl
 
 pip3 install -e .
 pip3 install -U git+https://github.com/huggingface/peft.git
-
-accelerate config
 
 # finetune lora
 accelerate launch scripts/finetune.py examples/openllama-3b/lora.yml
@@ -195,6 +194,10 @@ Have dataset(s) in one of the following format (JSONL recommended):
   ```json
   {"message_1": "...", "message_2": "..."}
   ```
+- `alpaca_w_system.load_open_orca`: support for open orca datasets with included system prompts, instruct
+  ```json
+  {"system_prompt": "...", "question": "...", "response": "..."}
+  ```
 - `context_qa`: in context question answering from an article
   ```json
   {"article": "...", "question": "...", "answer": "..."}
@@ -233,7 +236,7 @@ Have dataset(s) in one of the following format (JSONL recommended):
 #### How to add custom prompts
 
   1. Add your method to a file in [prompt_strategies](src/axolotl/prompt_strategies). Please see other files as example.
-  2. Use your custom file name as the dataset type.
+  2. Use your custom file name as the dataset type `<prompt_strategies_file>.load_<load_fn>`.
 
 Optionally, download some datasets, see [data/README.md](data/README.md)
 
@@ -251,10 +254,24 @@ See sample configs in [configs](configs) folder or [examples](examples) for quic
 
 - dataset
   ```yaml
+  sequence_len: 2048 # max token length for prompt
+
+  # huggingface repo
   datasets:
-    - path: vicgalle/alpaca-gpt4 # local or huggingface repo
+    - path: vicgalle/alpaca-gpt4
       type: alpaca # format from earlier
-  sequence_len: 2048 # max token length / prompt
+
+  # huggingface repo with specific configuration/subset
+  datasets:
+    - path: EleutherAI/pile
+      name: enron_emails
+      type: completion # format from earlier
+
+  # local
+  datasets:
+    - path: json
+      data_files: data.jsonl # or json
+      type: alpaca # format from earlier
   ```
 
 - loading
@@ -293,6 +310,8 @@ base_model_ignore_patterns:
 # if the base_model repo on hf hub doesn't include configuration .json files,
 # you can set that here, or leave this empty to default to base_model
 base_model_config: ./llama-7b-hf
+# you can specify to choose a specific model revision from huggingface hub
+model_revision:
 # Optional tokenizer configuration override in case you want to use a different tokenizer
 # than the one defined in the base model
 tokenizer_config:
@@ -304,6 +323,9 @@ tokenizer_type: AutoTokenizer
 trust_remote_code:
 # use_fast option for tokenizer loading from_pretrained, default to True
 tokenizer_use_fast:
+# resize the model embeddings when new tokens are added to multiples of 32
+# this is reported to improve training speed on some models
+resize_token_embeddings_to_32x:
 
 # whether you are training a 4-bit GPTQ quantized model
 gptq: true
@@ -324,18 +346,21 @@ tf32: true # require >=ampere
 
 # a list of one or more datasets to finetune the model with
 datasets:
-  # this can be either a hf dataset, or relative path
+  # hf dataset repo | "json" for local dataset, make sure to fill data_files
   - path: vicgalle/alpaca-gpt4
   # The type of prompt to use for training. [alpaca, sharegpt, gpteacher, oasst, reflection]
-    type: alpaca # format OR format:prompt_style (chat/instruct)
+    type: alpaca # format | format:<prompt_style> (chat/instruct) | <prompt_strategies>.load_<load_fn>
     data_files: # path to source data files
     shards: # number of shards to split data into
+    name: # name of dataset configuration to load
 
 # axolotl attempts to save the dataset as an arrow after packing the data together so
 # subsequent training attempts load faster, relative path
 dataset_prepared_path: data/last_run_prepared
 # push prepared dataset to hub
 push_dataset_to_hub: # repo path
+# push checkpoints to hub
+hub_model_id: # repo path to push finetuned model
 # whether to use hf `use_auth_token` for loading datasets. Useful for fetching private datasets
 # required to be true when used in combination with `push_dataset_to_hub`
 hf_use_auth_token: # boolean
@@ -396,6 +421,9 @@ learning_rate: 0.00003
 logging_steps:
 save_steps:
 eval_steps:
+
+# save model as safetensors (require safetensors package)
+save_safetensors:
 
 # whether to mask out or include the human's prompt from the training labels
 train_on_inputs: false
@@ -488,23 +516,27 @@ strict:
 
 </details>
 
-### Accelerate
-
-Configure accelerate
-
-```bash
-accelerate config
-
-# Edit manually
-# nano ~/.cache/huggingface/accelerate/default_config.yaml
-```
-
 ### Train
 
 Run
 ```bash
 accelerate launch scripts/finetune.py configs/your_config.yml
 ```
+
+#### Multi-GPU Config
+
+- llama FSDP
+```yaml
+fsdp:
+  - full_shard
+  - auto_wrap
+fsdp_config:
+  fsdp_offload_params: true
+  fsdp_state_dict_type: FULL_STATE_DICT
+  fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
+```
+
+- llama Deepspeed: append `ACCELERATE_USE_DEEPSPEED=true` in front of finetune command
 
 ### Inference
 
@@ -555,6 +587,10 @@ Try set `fp16: true`
 > NotImplementedError: No operator found for `memory_efficient_attention_forward` ...
 
 Try to turn off xformers.
+
+> accelerate config missing
+
+It's safe to ignore it.
 
 ## Need help? 🙋♂️
 

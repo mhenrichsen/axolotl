@@ -7,13 +7,17 @@ from pathlib import Path
 from transformers import AutoTokenizer
 
 from axolotl.prompt_strategies.alpaca_chat import NoSystemPrompter
+from axolotl.prompt_strategies.alpaca_w_system import (
+    InstructionWSystemPromptTokenizingStrategy,
+    SystemDataPrompter,
+)
 from axolotl.prompt_tokenizers import (
     AlpacaPromptTokenizingStrategy,
     ShareGPTPromptTokenizingStrategy,
 )
-from axolotl.prompters import AlpacaPrompter, ShareGPTPrompter
+from axolotl.prompters import AlpacaPrompter, PromptStyle, ShareGPTPrompter
 
-logging.basicConfig(level="INFO")
+LOG = logging.getLogger("axolotl")
 
 
 class TestPromptTokenizationStrategies(unittest.TestCase):
@@ -94,6 +98,41 @@ class TestPromptTokenizationStrategies(unittest.TestCase):
         world_idx = example["input_ids"].index(6324)
         assert example["labels"][world_idx] == 6324
         assert example["labels"][world_idx - 1] == -100
+
+
+class InstructionWSystemPromptTokenizingStrategyTest(unittest.TestCase):
+    """
+    Test class for prompt tokenization strategies with sys prompt from the dataset
+    """
+
+    def setUp(self) -> None:
+        # pylint: disable=duplicate-code
+        self.tokenizer = AutoTokenizer.from_pretrained("huggyllama/llama-7b")
+        self.tokenizer.add_special_tokens(
+            {
+                "bos_token": "<s>",
+                "eos_token": "</s>",
+                "unk_token": "<unk>",
+            }
+        )
+
+    def test_system_alpaca(self):
+        prompter = SystemDataPrompter(PromptStyle.CHAT.value)
+        strat = InstructionWSystemPromptTokenizingStrategy(
+            prompter,
+            self.tokenizer,
+            False,
+            2048,
+        )
+        sample = {
+            "system": "use cot",
+            "instruction": "hello!",
+            "output": "Hi! How can I help?",
+        }
+        example = strat.tokenize_prompt(sample)
+        assert example["input_ids"][0:4] == [1, 835, 2184, 29901]  # "<s>### System:"
+        assert example["input_ids"][5:7] == [1509, 20118]  # "use cot"
+        assert example["input_ids"][9] == 11889  # USER
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ FROM winglian/axolotl-base:$BASE_TAG
 
 ARG TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6+PTX"
 ARG AXOLOTL_EXTRAS=""
+ARG CUDA="118"
+ENV BNB_CUDA_VERSION=$CUDA
 
 RUN apt-get update && \
     apt-get install -y vim curl
@@ -21,6 +23,11 @@ RUN cd axolotl && \
     else \
         pip install -e .; \
     fi
+
+# fix so that git fetch/pull from remote works
+RUN cd axolotl && \
+    git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && \
+    git config --get remote.origin.fetch
 
 # helper for huggingface-login cli
 RUN git config --global credential.helper store

@@ -6,7 +6,7 @@ from axolotl.prompt_tokenizers import (
     AlpacaPromptTokenizingStrategy,
     InstructionPromptTokenizingStrategy,
 )
-from axolotl.prompters import AlpacaPrompter, PromptStyle
+from axolotl.prompters import AlpacaPrompter, PromptStyle, UnpromptedPrompter
 
 
 def load(tokenizer, cfg):
@@ -45,8 +45,10 @@ class NoSystemPrompter(AlpacaPrompter):
     Null Prompter with no system prompts
     """
 
-    prompt_input = "{instruction} {input} "
-    prompt_no_input = "{instruction} "
+    system_prompt = ""
+    system_no_input_prompt = ""
+    turn_format = "{instruction} {input} "
+    turn_no_input_format = "{instruction} "
 
     def __init__(self):  # pylint: disable=super-init-not-called
         pass
@@ -99,6 +101,15 @@ def load_qa(tokenizer, cfg):
 def load_camel_ai(tokenizer, cfg):
     return CamelAIPromptTokenizingStrategy(
         AlpacaChatPrompter(),
+        tokenizer,
+        cfg.train_on_inputs,
+        cfg.sequence_len,
+    )
+
+
+def load_no_prompt(tokenizer, cfg):
+    return AlpacaPromptTokenizingStrategy(
+        UnpromptedPrompter(PromptStyle.CHAT.value),
         tokenizer,
         cfg.train_on_inputs,
         cfg.sequence_len,

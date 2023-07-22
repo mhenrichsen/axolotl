@@ -10,6 +10,8 @@ from transformers import PreTrainedTokenizer
 
 from axolotl.prompters import IGNORE_TOKEN_ID
 
+LOG = logging.getLogger("axolotl")
+
 IGNORE_INDEX = -100
 LLAMA_DEFAULT_PAD_TOKEN = "[PAD]"  # nosec
 LLAMA_DEFAULT_EOS_TOKEN = "</s>"  # nosec
@@ -46,16 +48,22 @@ class PromptTokenizingStrategy(abc.ABC):
 
     @functools.lru_cache(maxsize=128)
     def _get_user_token(self):
-        id_or_ids = self.tokenizer.convert_tokens_to_ids("<|USER|>")
-        if isinstance(id_or_ids, (int,)):
-            return id_or_ids
+        try:
+            id_or_ids = self.tokenizer.convert_tokens_to_ids("<|USER|>")
+            if isinstance(id_or_ids, (int,)):
+                return id_or_ids
+        except KeyError:
+            pass
         return False
 
     @functools.lru_cache(maxsize=128)
     def _get_assistant_token(self):
-        id_or_ids = self.tokenizer.convert_tokens_to_ids("<|ASSISTANT|>")
-        if isinstance(id_or_ids, (int,)):
-            return id_or_ids
+        try:
+            id_or_ids = self.tokenizer.convert_tokens_to_ids("<|ASSISTANT|>")
+            if isinstance(id_or_ids, (int,)):
+                return id_or_ids
+        except KeyError:
+            pass
         return False
 
     def _tokenize(self, prompt: str, add_eos_token=True, strip_bos_token=False):
@@ -87,7 +95,9 @@ class InstructionPromptTokenizingStrategy(PromptTokenizingStrategy):
     Tokenizing strategy for instruction-based prompts.
     """
 
-    def parse_instruction_fields(self, prompt) -> Tuple[str, str, str]:
+    def parse_instruction_fields(
+        self, prompt
+    ) -> Union[Tuple[str, str, str], Tuple[str, str, str, str]]:
         raise NotImplementedError
 
     def tokenize_prompt(self, prompt):
@@ -382,7 +392,7 @@ class ShareGPTPromptTokenizingStrategy(PromptTokenizingStrategy):
                         # everything from this is masked out from the labels
                         labels = [IGNORE_TOKEN_ID] * len(res["input_ids"])
                     else:
-                        logging.warning(f"unhandled role: {part[0]}")
+                        LOG.warning(f"unhandled role: {part[0]}")
 
                 # pylint: disable=duplicate-code
                 result, current_len = parse_tokenized_to_result(
@@ -438,7 +448,7 @@ def parse_tokenized_to_result(
     result: Dict[str, List[int]],
     current_len: int,
     res: Dict[str, List[int]],
-    labels: list[int],
+    labels: List[int],
     pad_token_id: Union[int, None] = None,
 ) -> Tuple[Dict[str, List[int]], int]:
     """
